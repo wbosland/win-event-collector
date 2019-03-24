@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
-using System.Linq;
-using System.Collections;
 using System.Security;
-using System.Threading;
 using WindowsEventCollector.Interfaces;
 
 namespace WindowsEventCollector

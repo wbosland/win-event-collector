@@ -14,8 +14,6 @@ namespace WindowsEventCollector.ConsoleApp
         static string filePath;
         static List<SearchCriteria> searchCriterias;
         static SearchCriteria lastSearchCriteria;
-        static DateTime? startDateTime;
-        static DateTime? endDateTime;
         static IEventCollector eventCollector;
         static IExportService exportService;
 
@@ -31,6 +29,7 @@ namespace WindowsEventCollector.ConsoleApp
 
             Console.WriteLine("############################# How to use ###################################################");
             Console.WriteLine("### Event Log: Application        #   Input: Application / Security / System / <empty>   ###");
+            Console.WriteLine("### Search:    Test               #   Input: <any string> / <empty>                      ###");
             Console.WriteLine("### Start:     2019-03-24 00:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
             Console.WriteLine("### End:       2019-03-24 13:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
             Console.WriteLine("############################################################################################");
