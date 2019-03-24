@@ -12,9 +12,16 @@ namespace WindowsEventCollector
     {
         public void ExportToExcel<T>(IEnumerable<T> collection, string filePath)
         {
-            var workbook = new XLWorkbook();
-            var worksheet = workbook.Worksheets.Add(CreateDataTable(collection), "Event Logs");
-            workbook.SaveAs(filePath);
+            using (var workbook = new XLWorkbook())
+            {
+                var worksheet = workbook.Worksheets.Add("Event Logs");
+                worksheet.FirstCell().InsertTable(CreateDataTable(collection), false);
+                worksheet.Rows(1, 1).Style.Font.SetBold();
+                worksheet.Columns().AdjustToContents();
+                worksheet.Columns().Style.Alignment.SetWrapText(false);
+                worksheet.Columns().Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+                workbook.SaveAs(filePath);
+            }
         }
 
         private static DataTable CreateDataTable<T>(IEnumerable<T> list)
