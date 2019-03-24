@@ -12,7 +12,8 @@ namespace WindowsEventCollector.ConsoleApp
     class Program
     {
         static string filePath;
-        static List<EventLogName> eventLogNames;
+        static List<SearchCriteria> searchCriterias;
+        static SearchCriteria lastSearchCriteria;
         static DateTime? startDateTime;
         static DateTime? endDateTime;
         static IEventCollector eventCollector;
@@ -34,11 +35,10 @@ namespace WindowsEventCollector.ConsoleApp
             Console.WriteLine("### End:       2019-03-24 13:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
             Console.WriteLine("############################################################################################");
 
-            EnterEventLogName();
-            EnterStartDate();
-            EnterEndDate();
+            EnterSearchCriteria();
 
             WriteLineToConsole("Start collecting Windows events.");
+
             Collect();
 
             WriteLineToConsole("Press a key to exit.");
@@ -46,9 +46,9 @@ namespace WindowsEventCollector.ConsoleApp
             Console.ReadKey();
         }
 
-        private static void EnterEventLogName()
+        private static void EnterSearchCriteria()
         {
-            eventLogNames = new List<EventLogName>();
+            searchCriterias = new List<SearchCriteria>();
             bool done = false;
 
             while (!done)
@@ -57,7 +57,7 @@ namespace WindowsEventCollector.ConsoleApp
                 string eventLogName = Console.ReadLine();
 
                 if (string.IsNullOrWhiteSpace(eventLogName) &&
-                    eventLogNames.Count > 0)
+                    searchCriterias.Count > 0)
                 {
                     done = true;
                     break;
@@ -65,13 +65,29 @@ namespace WindowsEventCollector.ConsoleApp
 
                 if (Enum.TryParse(eventLogName, out EventLogName eventLogNameEnum))
                 {
-                    eventLogNames.Add(eventLogNameEnum);
+                    lastSearchCriteria = new SearchCriteria(eventLogNameEnum, "");
+                    searchCriterias.Add(lastSearchCriteria);
+                    EnterLogContains();
                 }
                 else
                 {
                     WriteLineToConsole("This event log name is not supported.");
                 }
             }
+        }
+
+        private static void EnterLogContains()
+        {
+            WriteToConsole("Search: ");
+            lastSearchCriteria.LogContains = Console.ReadLine();
+
+            if (!string.IsNullOrWhiteSpace(lastSearchCriteria.LogContains))
+            {
+                lastSearchCriteria.ApplySearch = true;
+            }
+
+            EnterStartDate();
+            EnterEndDate();
         }
 
         private static void EnterStartDate()
@@ -86,14 +102,14 @@ namespace WindowsEventCollector.ConsoleApp
                 if (string.IsNullOrWhiteSpace(strStartDateTime))
                 {
                     startDateTimeIsValid = true;
-                    startDateTime = null;
+                    lastSearchCriteria.StartDateTime = null;
                     break;
                 }
 
                 if (TryParseDateTime(strStartDateTime, out DateTime dateTime))
                 {
                     startDateTimeIsValid = true;
-                    startDateTime = dateTime;
+                    lastSearchCriteria.StartDateTime = dateTime;
                 }
                 else
                 {
@@ -114,14 +130,14 @@ namespace WindowsEventCollector.ConsoleApp
                 if (String.IsNullOrWhiteSpace(strEndDateTime))
                 {
                     endDateTimeIsValid = true;
-                    endDateTime = null;
+                    lastSearchCriteria.EndDateTime = null;
                     break;
                 }
 
                 if (TryParseDateTime(strEndDateTime, out DateTime dateTime))
                 {
                     endDateTimeIsValid = true;
-                    endDateTime = dateTime;
+                    lastSearchCriteria.EndDateTime = dateTime;
                 }
                 else
                 {
@@ -134,14 +150,14 @@ namespace WindowsEventCollector.ConsoleApp
         {
             var tasks = new List<Task>();
 
-            foreach (var eventLogName in eventLogNames)
+            foreach (var searchCriteria in searchCriterias)
             {
                 tasks.Add(Task.Run(() =>
                 {
-                    WriteLineToConsole($"Getting { eventLogName.ToString() } event log data...");
-                    List<EventLogData> eventLogs = eventCollector.GetEventLogEntries(eventLogName, startDateTime, endDateTime).Select(entry => entry.ToEventLogData()).ToList();
-                    WriteLineToConsole($"{ eventLogName.ToString() } event log entries: { eventLogs.Count }");
-                    string filePath = $@"{ Program.filePath }\{ eventLogName }EventLogs.xlsx";
+                    WriteLineToConsole($"Getting { searchCriteria.LogName.ToString() } event log data...");
+                    List<EventLogData> eventLogs = eventCollector.GetEventLogEntries(searchCriteria).Select(entry => entry.ToEventLogData()).ToList();
+                    WriteLineToConsole($"{ searchCriteria.LogName.ToString() } event log entries: { eventLogs.Count }");
+                    string filePath = $@"{ Program.filePath }\{ searchCriteria.LogName }EventLogs.xlsx";
                     exportService.ExportToExcel(eventLogs, filePath);
                     WriteLineToConsole($"Exported to: { filePath }");
                 }));
