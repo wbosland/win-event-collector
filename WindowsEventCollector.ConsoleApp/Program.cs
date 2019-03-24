@@ -1,6 +1,4 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.FileExtensions;
-using Microsoft.Extensions.Configuration.Json;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -35,8 +33,6 @@ namespace WindowsEventCollector.ConsoleApp
             Console.WriteLine("### Start:     2019-03-24 00:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
             Console.WriteLine("### End:       2019-03-24 13:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
             Console.WriteLine("############################################################################################");
-            //Console.WriteLine("Enter a start and end date including time.");
-            //Console.WriteLine("E.g. start: '2019-02-17 16:00' and end: '2019-02-18 16:00' (without the quotes).");
 
             EnterEventLogName();
             EnterStartDate();
