@@ -7,6 +7,6 @@ namespace WindowsEventCollector.Interfaces
 {
     public interface IEventCollector
     {
-        List<EventLogEntry> GetEventLogEntries(EventLogName eventLog, DateTime? startDateTime, DateTime? endDateTime);
+        List<EventLogEntry> GetEventLogEntries(SearchCriteria searchCriteria);
     }
 }
