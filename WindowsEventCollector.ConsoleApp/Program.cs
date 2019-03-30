@@ -11,28 +11,22 @@ namespace WindowsEventCollector.ConsoleApp
 {
     class Program
     {
-        static string filePath;
+        static AppSettings appSettings;
         static List<SearchCriteria> searchCriterias;
         static SearchCriteria lastSearchCriteria;
-        static IEventCollector eventCollector;
-        static IExportService exportService;
+        static IEventCollector eventCollector = new EventCollector();
+        static IExportService exportService = new ExportService();
 
         static void Main(string[] args)
         {
-            IConfiguration config = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", true, true)
-                .Build();
-            filePath = config["filePath"];
-
-            eventCollector = new EventCollector();
-            exportService = new ExportService();
-
             Console.WriteLine("############################# How to use ###################################################");
             Console.WriteLine("### Event Log: Application        #   Input: Application / Security / System / <empty>   ###");
             Console.WriteLine("### Search:    Test               #   Input: <any string> / <empty>                      ###");
             Console.WriteLine("### Start:     2019-03-24 00:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
             Console.WriteLine("### End:       2019-03-24 13:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
             Console.WriteLine("############################################################################################");
+
+            ReadAppSettings();
 
             EnterSearchCriteria();
 
@@ -43,6 +37,15 @@ namespace WindowsEventCollector.ConsoleApp
             WriteLineToConsole("Press a key to exit.");
 
             Console.ReadKey();
+        }
+
+        private static void ReadAppSettings()
+        {
+            IConfiguration config = new ConfigurationBuilder()
+                            .AddJsonFile("appsettings.json", true, true)
+                            .Build();
+            AppSettings appSettings = new AppSettings();
+            config.GetSection("settings").Bind(appSettings);
         }
 
         private static void EnterSearchCriteria()
@@ -156,7 +159,7 @@ namespace WindowsEventCollector.ConsoleApp
                     WriteLineToConsole($"Getting { searchCriteria.LogName.ToString() } event log data...");
                     List<EventLogData> eventLogs = eventCollector.GetEventLogEntries(searchCriteria).Select(entry => entry.ToEventLogData()).ToList();
                     WriteLineToConsole($"{ searchCriteria.LogName.ToString() } event log entries: { eventLogs.Count }");
-                    string filePath = $@"{ Program.filePath }\{ searchCriteria.LogName }EventLogs.xlsx";
+                    string filePath = $@"{ appSettings.FilePath }\{ searchCriteria.LogName }EventLogs.xlsx";
                     exportService.ExportToExcel(eventLogs, filePath);
                     WriteLineToConsole($"Exported to: { filePath }");
                 }));
