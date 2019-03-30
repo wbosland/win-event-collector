@@ -12,23 +12,34 @@ namespace WindowsEventCollector.ConsoleApp
     class Program
     {
         static AppSettings appSettings;
-        static List<SearchCriteria> searchCriterias;
+        static List<SearchCriteria> searchCriterias = new List<SearchCriteria>();
         static SearchCriteria lastSearchCriteria;
         static IEventCollector eventCollector = new EventCollector();
         static IExportService exportService = new ExportService();
 
         static void Main(string[] args)
         {
+            ReadAppSettings();
+
             Console.WriteLine("############################# How to use ###################################################");
             Console.WriteLine("### Event Log: Application        #   Input: Application / Security / System / <empty>   ###");
+            Console.WriteLine("### Machine:   MachineName        #   Input: <any string> / <empty>                      ###");
             Console.WriteLine("### Search:    Test               #   Input: <any string> / <empty>                      ###");
             Console.WriteLine("### Start:     2019-03-24 00:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
             Console.WriteLine("### End:       2019-03-24 13:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
             Console.WriteLine("############################################################################################");
 
-            ReadAppSettings();
-
-            EnterSearchCriteria();
+            if (appSettings.UseStartupSettings)
+            {
+                foreach (var eventLogSettings in appSettings.StartupSettings.EventLogSettings)
+                {
+                    EnterSearchCriteria(eventLogSettings);
+                }
+            }
+            else
+            {
+                EnterSearchCriteria();
+            }
 
             WriteLineToConsole("Start collecting Windows events.");
 
@@ -44,32 +55,57 @@ namespace WindowsEventCollector.ConsoleApp
             IConfiguration config = new ConfigurationBuilder()
                             .AddJsonFile("appsettings.json", true, true)
                             .Build();
-            AppSettings appSettings = new AppSettings();
+            appSettings = new AppSettings();
             config.GetSection("settings").Bind(appSettings);
         }
 
-        private static void EnterSearchCriteria()
+        private static void EnterSearchCriteria(EventLogSettings defaultSettings = null)
         {
-            searchCriterias = new List<SearchCriteria>();
-            bool done = false;
+            bool loop = true;
 
-            while (!done)
+            while (loop)
             {
+                string eventLogName;
+                string machineName;
+
                 WriteToConsole("Event Log: ");
-                string eventLogName = Console.ReadLine();
+
+                if (defaultSettings != null)
+                {
+                    loop = false;
+                    eventLogName = defaultSettings.LogName;
+
+                    Console.WriteLine(eventLogName);
+                }
+                else
+                {
+                    eventLogName = Console.ReadLine();
+                }
 
                 if (string.IsNullOrWhiteSpace(eventLogName) &&
                     searchCriterias.Count > 0)
                 {
-                    done = true;
+                    loop = false;
                     break;
+                }
+
+                WriteToConsole("Machine: ");
+
+                if (defaultSettings != null)
+                {
+                    machineName = defaultSettings.Machine;
+                    Console.WriteLine(machineName);
+                }
+                else
+                {
+                    machineName = Console.ReadLine();
                 }
 
                 if (Enum.TryParse(eventLogName, out EventLogName eventLogNameEnum))
                 {
-                    lastSearchCriteria = new SearchCriteria(eventLogNameEnum, "");
+                    lastSearchCriteria = new SearchCriteria(eventLogNameEnum, machineName);
                     searchCriterias.Add(lastSearchCriteria);
-                    EnterLogContains();
+                    EnterLogSearch(defaultSettings);
                 }
                 else
                 {
@@ -78,28 +114,44 @@ namespace WindowsEventCollector.ConsoleApp
             }
         }
 
-        private static void EnterLogContains()
+        private static void EnterLogSearch(EventLogSettings defaultSettings = null)
         {
             WriteToConsole("Search: ");
-            lastSearchCriteria.LogContains = Console.ReadLine();
 
-            if (!string.IsNullOrWhiteSpace(lastSearchCriteria.LogContains))
+            if (defaultSettings != null)
             {
-                lastSearchCriteria.ApplySearch = true;
+                lastSearchCriteria.LogSearch = defaultSettings.Search;
+                Console.WriteLine(lastSearchCriteria.LogSearch);
+            }
+            else
+            {
+                lastSearchCriteria.LogSearch = Console.ReadLine();
             }
 
-            EnterStartDate();
-            EnterEndDate();
+            EnterStartDate(defaultSettings);
+            EnterEndDate(defaultSettings);
         }
 
-        private static void EnterStartDate()
+        private static void EnterStartDate(EventLogSettings defaultSettings = null)
         {
             bool startDateTimeIsValid = false;
 
             while (!startDateTimeIsValid)
             {
                 WriteToConsole("Start: ");
-                string strStartDateTime = Console.ReadLine();
+                string strStartDateTime;
+
+                if (defaultSettings != null)
+                {
+                    startDateTimeIsValid = true;
+                    lastSearchCriteria.StartDateTime = DateTime.Now.Subtract(TimeSpan.FromHours(defaultSettings.Hours));
+                    Console.WriteLine(lastSearchCriteria.StartDateTime);
+                    break;
+                }
+                else
+                {
+                    strStartDateTime = Console.ReadLine();
+                }
 
                 if (string.IsNullOrWhiteSpace(strStartDateTime))
                 {
@@ -120,16 +172,28 @@ namespace WindowsEventCollector.ConsoleApp
             }
         }
 
-        private static void EnterEndDate()
+        private static void EnterEndDate(EventLogSettings defaultSettings = null)
         {
             bool endDateTimeIsValid = false;
 
             while (!endDateTimeIsValid)
             {
                 WriteToConsole("End: ");
-                string strEndDateTime = Console.ReadLine();
+                string strEndDateTime;
 
-                if (String.IsNullOrWhiteSpace(strEndDateTime))
+                if (defaultSettings != null)
+                {
+                    endDateTimeIsValid = true;
+                    lastSearchCriteria.EndDateTime = null;
+                    Console.WriteLine("");
+                    break;
+                }
+                else
+                {
+                    strEndDateTime = Console.ReadLine();
+                }
+
+                if (string.IsNullOrWhiteSpace(strEndDateTime))
                 {
                     endDateTimeIsValid = true;
                     lastSearchCriteria.EndDateTime = null;

@@ -15,12 +15,13 @@ namespace WindowsEventCollector.ConsoleApp
 
     public class StartupSettings
     {
-        public List<EventLog> EventLogs { get; set; }
+        public List<EventLogSettings> EventLogSettings { get; set; }
     }
 
-    public class EventLog
+    public class EventLogSettings
     {
-        public string Name { get; set; }
+        public string LogName { get; set; }
+        public string Machine { get; set; }
         public string Search { get; set; }
         public int Hours { get; set; }
     }
