@@ -1,39 +1,32 @@
 ﻿using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Threading.Tasks;
 using System.Linq;
-using System.Threading;
+using System.Threading.Tasks;
+using WindowsEventCollector.ConsoleApp.Helpers;
 using WindowsEventCollector.Interfaces;
 
 namespace WindowsEventCollector.ConsoleApp
 {
     class Program
     {
-        static AppSettings appSettings;
-        static List<SearchCriteria> searchCriterias = new List<SearchCriteria>();
-        static SearchCriteria lastSearchCriteria;
-        static IEventCollector eventCollector = new EventCollector();
-        static IExportService exportService = new ExportService();
+        private static AppSettings appSettings;
+        private static List<SearchCriteria> searchCriterias = new List<SearchCriteria>();
+        private static SearchCriteria lastSearchCriteria;
+        private static IEventCollector eventCollector = new EventCollector();
+        private static IExportService exportService = new ExportService();
 
         static void Main(string[] args)
         {
             ReadAppSettings();
 
-            Console.WriteLine("############################# How to use ###################################################");
-            Console.WriteLine("### Event Log: Application        #   Input: Application / Security / System / <empty>   ###");
-            Console.WriteLine("### Machine:   MachineName        #   Input: <any string> / <empty>                      ###");
-            Console.WriteLine("### Search:    Test               #   Input: <any string> / <empty>                      ###");
-            Console.WriteLine("### Start:     2019-03-24 00:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
-            Console.WriteLine("### End:       2019-03-24 13:00   #   Input: <yyyy-mm-dd hh:mm> / <empty>                ###");
-            Console.WriteLine("############################################################################################");
+            Print.HowTo();
 
             if (appSettings.UseStartupSettings)
             {
                 foreach (var eventLogSettings in appSettings.StartupSettings.EventLogSettings)
                 {
-                    EnterSearchCriteria(eventLogSettings);
+                    CreateSearchCriteria(eventLogSettings);
                 }
             }
             else
@@ -41,117 +34,85 @@ namespace WindowsEventCollector.ConsoleApp
                 EnterSearchCriteria();
             }
 
-            WriteLineToConsole("Start collecting Windows events.");
+            Print.StartCollecting();
 
             Collect();
 
-            WriteLineToConsole("Press a key to exit.");
+            Print.PressKeyToExit();
 
             Console.ReadKey();
         }
 
-        private static void ReadAppSettings()
+        private static void CreateSearchCriteria(EventLogSettings eventLogSettings)
         {
-            IConfiguration config = new ConfigurationBuilder()
-                            .AddJsonFile("appsettings.json", true, true)
-                            .Build();
-            appSettings = new AppSettings();
-            config.GetSection("settings").Bind(appSettings);
+            Print.SettingsToConsole(eventLogSettings);
+
+            if (Enum.TryParse(eventLogSettings.LogName, out EventLogName eventLogNameEnum))
+            {
+                lastSearchCriteria = new SearchCriteria(logName: eventLogNameEnum, 
+                                                        machineName: eventLogSettings.Machine, 
+                                                        logSearch: eventLogSettings.Search,
+                                                        startDateTime: DateTime.Now.Subtract(TimeSpan.FromHours(eventLogSettings.Hours)));
+                searchCriterias.Add(lastSearchCriteria);
+            }
+            else
+            {
+                Print.EventLogIsUnknown(eventLogSettings.LogName);
+            }
         }
 
-        private static void EnterSearchCriteria(EventLogSettings defaultSettings = null)
+        private static void EnterSearchCriteria()
         {
-            bool loop = true;
+            bool done = false;
 
-            while (loop)
+            while (!done)
             {
-                string eventLogName;
-                string machineName;
-
-                WriteToConsole("Event Log: ");
-
-                if (defaultSettings != null)
-                {
-                    loop = false;
-                    eventLogName = defaultSettings.LogName;
-
-                    Console.WriteLine(eventLogName);
-                }
-                else
-                {
-                    eventLogName = Console.ReadLine();
-                }
+                Print.EnterEventLog();
+                string eventLogName = Console.ReadLine();
 
                 if (string.IsNullOrWhiteSpace(eventLogName) &&
                     searchCriterias.Count > 0)
                 {
-                    loop = false;
+                    done = true;
                     break;
-                }
-
-                WriteToConsole("Machine: ");
-
-                if (defaultSettings != null)
-                {
-                    machineName = defaultSettings.Machine;
-                    Console.WriteLine(machineName);
-                }
-                else
-                {
-                    machineName = Console.ReadLine();
                 }
 
                 if (Enum.TryParse(eventLogName, out EventLogName eventLogNameEnum))
                 {
-                    lastSearchCriteria = new SearchCriteria(eventLogNameEnum, machineName);
+                    lastSearchCriteria = new SearchCriteria(logName: eventLogNameEnum);
+                    EnterMachineName();
+                    EnterLogSearch();
+                    EnterStartDate();
+                    EnterEndDate();
                     searchCriterias.Add(lastSearchCriteria);
-                    EnterLogSearch(defaultSettings);
                 }
                 else
                 {
-                    WriteLineToConsole("This event log name is not supported.");
+                    Print.EventLogIsUnknown(eventLogName);
                 }
             }
         }
 
-        private static void EnterLogSearch(EventLogSettings defaultSettings = null)
+        private static void EnterMachineName()
         {
-            WriteToConsole("Search: ");
-
-            if (defaultSettings != null)
-            {
-                lastSearchCriteria.LogSearch = defaultSettings.Search;
-                Console.WriteLine(lastSearchCriteria.LogSearch);
-            }
-            else
-            {
-                lastSearchCriteria.LogSearch = Console.ReadLine();
-            }
-
-            EnterStartDate(defaultSettings);
-            EnterEndDate(defaultSettings);
+            Print.EnterMachineName();
+            lastSearchCriteria.MachineName = Console.ReadLine();
         }
 
-        private static void EnterStartDate(EventLogSettings defaultSettings = null)
+        private static void EnterLogSearch()
+        {
+            Print.EnterLogSearch();
+            lastSearchCriteria.LogSearch = Console.ReadLine();
+        }
+
+        private static void EnterStartDate()
         {
             bool startDateTimeIsValid = false;
 
             while (!startDateTimeIsValid)
             {
-                WriteToConsole("Start: ");
-                string strStartDateTime;
-
-                if (defaultSettings != null)
-                {
-                    startDateTimeIsValid = true;
-                    lastSearchCriteria.StartDateTime = DateTime.Now.Subtract(TimeSpan.FromHours(defaultSettings.Hours));
-                    Console.WriteLine(lastSearchCriteria.StartDateTime);
-                    break;
-                }
-                else
-                {
-                    strStartDateTime = Console.ReadLine();
-                }
+                Print.EnterStartDate();
+                string strStartDateTime = Console.ReadLine();
 
                 if (string.IsNullOrWhiteSpace(strStartDateTime))
                 {
@@ -160,38 +121,26 @@ namespace WindowsEventCollector.ConsoleApp
                     break;
                 }
 
-                if (TryParseDateTime(strStartDateTime, out DateTime dateTime))
+                if (DateTimeHelper.TryParseDateTime(strStartDateTime, out DateTime dateTime))
                 {
                     startDateTimeIsValid = true;
                     lastSearchCriteria.StartDateTime = dateTime;
                 }
                 else
                 {
-                    WriteLineToConsole("Invalid start date. Please try again.");
+                    Print.InvalidStartDate();
                 }
             }
         }
 
-        private static void EnterEndDate(EventLogSettings defaultSettings = null)
+        private static void EnterEndDate()
         {
             bool endDateTimeIsValid = false;
 
             while (!endDateTimeIsValid)
             {
-                WriteToConsole("End: ");
-                string strEndDateTime;
-
-                if (defaultSettings != null)
-                {
-                    endDateTimeIsValid = true;
-                    lastSearchCriteria.EndDateTime = null;
-                    Console.WriteLine("");
-                    break;
-                }
-                else
-                {
-                    strEndDateTime = Console.ReadLine();
-                }
+                Print.EnterEndDate();
+                string strEndDateTime = Console.ReadLine();
 
                 if (string.IsNullOrWhiteSpace(strEndDateTime))
                 {
@@ -200,14 +149,14 @@ namespace WindowsEventCollector.ConsoleApp
                     break;
                 }
 
-                if (TryParseDateTime(strEndDateTime, out DateTime dateTime))
+                if (DateTimeHelper.TryParseDateTime(strEndDateTime, out DateTime dateTime))
                 {
                     endDateTimeIsValid = true;
                     lastSearchCriteria.EndDateTime = dateTime;
                 }
                 else
                 {
-                    WriteLineToConsole("Invalid end date. Please try again.");
+                    Print.InvalidEndDate();
                 }
             }
         }
@@ -220,12 +169,17 @@ namespace WindowsEventCollector.ConsoleApp
             {
                 tasks.Add(Task.Run(() =>
                 {
-                    WriteLineToConsole($"Getting { searchCriteria.LogName.ToString() } event log data...");
+                    Print.GettingEventLogData(searchCriteria.LogName.ToString());
+
                     List<EventLogData> eventLogs = eventCollector.GetEventLogEntries(searchCriteria).Select(entry => entry.ToEventLogData()).ToList();
-                    WriteLineToConsole($"{ searchCriteria.LogName.ToString() } event log entries: { eventLogs.Count }");
+
+                    Print.EventLogEntries(searchCriteria.LogName.ToString(), eventLogs.Count());
+
                     string filePath = $@"{ appSettings.FilePath }\{ searchCriteria.LogName }EventLogs.xlsx";
+
                     exportService.ExportToExcel(eventLogs, filePath);
-                    WriteLineToConsole($"Exported to: { filePath }");
+
+                    Print.ExportedTo(filePath);
                 }));
             }
 
@@ -239,7 +193,7 @@ namespace WindowsEventCollector.ConsoleApp
                 {
                     if (ex is SystemException)
                     {
-                        WriteLineToConsole($"ERROR: { ex.Message }");
+                        Print.Error(ex);
                         return true;
                     }
                     return false;
@@ -247,23 +201,13 @@ namespace WindowsEventCollector.ConsoleApp
             }
         }
 
-        private static bool TryParseDateTime(string strDateTime, out DateTime dateTime)
+        private static void ReadAppSettings()
         {
-            return DateTime.TryParseExact(strDateTime, 
-                                          "yyyy-MM-dd HH:mm", 
-                                          new CultureInfo("en-US"), 
-                                          DateTimeStyles.None, 
-                                          out dateTime);
-        }
-
-        private static void WriteLineToConsole(object message)
-        {
-            Console.WriteLine($"[{ Thread.CurrentThread.ManagedThreadId }] { message }");
-        }
-
-        private static void WriteToConsole(object message)
-        {
-            Console.Write($"[{ Thread.CurrentThread.ManagedThreadId }] { message }");
+            IConfiguration config = new ConfigurationBuilder()
+                            .AddJsonFile("appsettings.json", true, true)
+                            .Build();
+            appSettings = new AppSettings();
+            config.GetSection("settings").Bind(appSettings);
         }
     }
 }
