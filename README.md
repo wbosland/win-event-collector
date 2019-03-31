@@ -4,11 +4,12 @@
 
 # Features
 
-- Search events:
+- Search events by:
   - Event Log (Application, System or Security)
   - Machine (local or remote)
-  - Search
+  - Search (simple string.Contains('...'))
   - Start Date
   - End Date
-- Export events to Excel
+- Collect and export events to Excel
+- Collect multiple event logs concurrently
 - Auto collect on startup
