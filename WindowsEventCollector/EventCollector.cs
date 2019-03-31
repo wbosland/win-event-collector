@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Security;
 using WindowsEventCollector.Interfaces;
 
@@ -9,7 +10,18 @@ namespace WindowsEventCollector
     {
         public List<EventLogEntry> GetEventLogEntries(SearchCriteria searchCriteria)
         {
-            EventLog eventLog = new EventLog(searchCriteria.LogName.ToString());
+            EventLog eventLog;
+            bool applySearch = string.IsNullOrWhiteSpace(searchCriteria.LogSearch) == false;
+
+            if (string.IsNullOrWhiteSpace(searchCriteria.MachineName))
+            {
+                eventLog = new EventLog(searchCriteria.LogName.ToString());
+            }
+            else
+            {
+                eventLog = new EventLog(searchCriteria.LogName.ToString(), searchCriteria.MachineName);
+            }
+
             var eventLogEntryCollection = eventLog.Entries;
 
             List<EventLogEntry> eventLogEntryList = new List<EventLogEntry>();
@@ -23,8 +35,8 @@ namespace WindowsEventCollector
                     if ((!searchCriteria.EndDateTime.HasValue || entry.TimeGenerated <= searchCriteria.EndDateTime) &&
                         (!searchCriteria.StartDateTime.HasValue || entry.TimeGenerated >= searchCriteria.StartDateTime))
                     {
-                        if ((searchCriteria.ApplySearch && entry.Message.Contains(searchCriteria.LogContains)) ||
-                            searchCriteria.ApplySearch == false)
+                        if ((applySearch && entry.Message.Contains(searchCriteria.LogSearch)) ||
+                             applySearch == false)
                         {
                             eventLogEntryList.Add(entry);
                         }
@@ -34,6 +46,10 @@ namespace WindowsEventCollector
             catch (SecurityException ex)
             {
                 throw new SecurityException($"You do not have permission to access event log: { searchCriteria.LogName }.", ex);
+            }
+            catch (IOException ex)
+            {
+                throw new IOException($"Not able to connect to machine: { searchCriteria.MachineName }", ex);
             }
 
             return eventLogEntryList;
