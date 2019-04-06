@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using WindowsEventCollector.ConsoleApp.Helpers;
@@ -175,7 +176,7 @@ namespace WindowsEventCollector.ConsoleApp
 
                     ConsolePrinter.PrintEventLogEntries(searchCriteria.LogName.ToString(), eventLogs.Count());
 
-                    string filePath = $@"{ appSettings.FilePath }\{ searchCriteria.LogName }EventLogs.xlsx";
+                    string filePath = GetFilePath(searchCriteria.LogName.ToString());
 
                     exportService.ExportToExcel(eventLogs, filePath);
 
@@ -208,6 +209,19 @@ namespace WindowsEventCollector.ConsoleApp
                             .Build();
             appSettings = new AppSettings();
             config.GetSection("settings").Bind(appSettings);
+        }
+
+        private static string GetFilePath(string logName)
+        {
+            string unixTimeStamp = "";
+
+            if (!appSettings.OverwriteFile)
+            {
+                unixTimeStamp = "-" + DateTimeOffset.Now.ToUnixTimeSeconds().ToString();
+            }
+
+            string filePath = $@"{ appSettings.FilePath }\{ logName }EventLogs{ unixTimeStamp }.xlsx";
+            return filePath;
         }
     }
 }
