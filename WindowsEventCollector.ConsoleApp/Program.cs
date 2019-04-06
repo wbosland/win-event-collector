@@ -15,7 +15,7 @@ namespace WindowsEventCollector.ConsoleApp
         private static List<SearchCriteria> searchCriterias = new List<SearchCriteria>();
         private static SearchCriteria lastSearchCriteria;
         private static IEventCollector eventCollector = new EventCollector();
-        private static IExportService exportService = new ExportService();
+        private static IExport exportService = new ExcelExport();
 
         static void Main(string[] args)
         {
@@ -178,7 +178,7 @@ namespace WindowsEventCollector.ConsoleApp
 
                     string filePath = GetFilePath(searchCriteria.LogName.ToString());
 
-                    exportService.ExportToExcel(eventLogs, filePath);
+                    exportService.Export(eventLogs, filePath);
 
                     ConsolePrinter.PrintExportedTo(filePath);
                 }));
