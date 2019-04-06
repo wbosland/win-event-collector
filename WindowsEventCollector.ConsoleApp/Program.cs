@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using WindowsEventCollector.ConsoleApp.Helpers;
@@ -14,13 +15,13 @@ namespace WindowsEventCollector.ConsoleApp
         private static List<SearchCriteria> searchCriterias = new List<SearchCriteria>();
         private static SearchCriteria lastSearchCriteria;
         private static IEventCollector eventCollector = new EventCollector();
-        private static IExportService exportService = new ExportService();
+        private static IExport exportService = new ExcelExport();
 
         static void Main(string[] args)
         {
             ReadAppSettings();
 
-            Print.HowTo();
+            ConsolePrinter.PrintHowTo();
 
             if (appSettings.UseStartupSettings)
             {
@@ -34,18 +35,18 @@ namespace WindowsEventCollector.ConsoleApp
                 EnterSearchCriteria();
             }
 
-            Print.StartCollecting();
+            ConsolePrinter.PrintStartCollecting();
 
             Collect();
 
-            Print.PressKeyToExit();
+            ConsolePrinter.PrintPressKeyToExit();
 
             Console.ReadKey();
         }
 
         private static void CreateSearchCriteria(EventLogSettings eventLogSettings)
         {
-            Print.SettingsToConsole(eventLogSettings);
+            ConsolePrinter.PrintSettingsToConsole(eventLogSettings);
 
             if (Enum.TryParse(eventLogSettings.LogName, out EventLogName eventLogNameEnum))
             {
@@ -57,7 +58,7 @@ namespace WindowsEventCollector.ConsoleApp
             }
             else
             {
-                Print.EventLogIsUnknown(eventLogSettings.LogName);
+                ConsolePrinter.PrintEventLogIsUnknown(eventLogSettings.LogName);
             }
         }
 
@@ -67,7 +68,7 @@ namespace WindowsEventCollector.ConsoleApp
 
             while (!done)
             {
-                Print.EnterEventLog();
+                ConsolePrinter.PrintEnterEventLog();
                 string eventLogName = Console.ReadLine();
 
                 if (string.IsNullOrWhiteSpace(eventLogName) &&
@@ -88,20 +89,20 @@ namespace WindowsEventCollector.ConsoleApp
                 }
                 else
                 {
-                    Print.EventLogIsUnknown(eventLogName);
+                    ConsolePrinter.PrintEventLogIsUnknown(eventLogName);
                 }
             }
         }
 
         private static void EnterMachineName()
         {
-            Print.EnterMachineName();
+            ConsolePrinter.PrintEnterMachineName();
             lastSearchCriteria.MachineName = Console.ReadLine();
         }
 
         private static void EnterLogSearch()
         {
-            Print.EnterLogSearch();
+            ConsolePrinter.PrintEnterLogSearch();
             lastSearchCriteria.LogSearch = Console.ReadLine();
         }
 
@@ -111,7 +112,7 @@ namespace WindowsEventCollector.ConsoleApp
 
             while (!startDateTimeIsValid)
             {
-                Print.EnterStartDate();
+                ConsolePrinter.PrintEnterStartDate();
                 string strStartDateTime = Console.ReadLine();
 
                 if (string.IsNullOrWhiteSpace(strStartDateTime))
@@ -128,7 +129,7 @@ namespace WindowsEventCollector.ConsoleApp
                 }
                 else
                 {
-                    Print.InvalidStartDate();
+                    ConsolePrinter.PrintInvalidStartDate();
                 }
             }
         }
@@ -139,7 +140,7 @@ namespace WindowsEventCollector.ConsoleApp
 
             while (!endDateTimeIsValid)
             {
-                Print.EnterEndDate();
+                ConsolePrinter.PrintEnterEndDate();
                 string strEndDateTime = Console.ReadLine();
 
                 if (string.IsNullOrWhiteSpace(strEndDateTime))
@@ -156,7 +157,7 @@ namespace WindowsEventCollector.ConsoleApp
                 }
                 else
                 {
-                    Print.InvalidEndDate();
+                    ConsolePrinter.PrintInvalidEndDate();
                 }
             }
         }
@@ -169,17 +170,17 @@ namespace WindowsEventCollector.ConsoleApp
             {
                 tasks.Add(Task.Run(() =>
                 {
-                    Print.GettingEventLogData(searchCriteria.LogName.ToString());
+                    ConsolePrinter.PrintGettingEventLogData(searchCriteria.LogName.ToString());
 
                     List<EventLogData> eventLogs = eventCollector.GetEventLogEntries(searchCriteria).Select(entry => entry.ToEventLogData()).ToList();
 
-                    Print.EventLogEntries(searchCriteria.LogName.ToString(), eventLogs.Count());
+                    ConsolePrinter.PrintEventLogEntries(searchCriteria.LogName.ToString(), eventLogs.Count());
 
-                    string filePath = $@"{ appSettings.FilePath }\{ searchCriteria.LogName }EventLogs.xlsx";
+                    string filePath = GetFilePath(searchCriteria.LogName.ToString());
 
-                    exportService.ExportToExcel(eventLogs, filePath);
+                    exportService.Export(eventLogs, filePath);
 
-                    Print.ExportedTo(filePath);
+                    ConsolePrinter.PrintExportedTo(filePath);
                 }));
             }
 
@@ -193,7 +194,7 @@ namespace WindowsEventCollector.ConsoleApp
                 {
                     if (ex is SystemException)
                     {
-                        Print.Error(ex);
+                        ConsolePrinter.PrintError(ex);
                         return true;
                     }
                     return false;
@@ -208,6 +209,19 @@ namespace WindowsEventCollector.ConsoleApp
                             .Build();
             appSettings = new AppSettings();
             config.GetSection("settings").Bind(appSettings);
+        }
+
+        private static string GetFilePath(string logName)
+        {
+            string unixTimeStamp = "";
+
+            if (!appSettings.OverwriteFile)
+            {
+                unixTimeStamp = "-" + DateTimeOffset.Now.ToUnixTimeSeconds().ToString();
+            }
+
+            string filePath = $@"{ appSettings.FilePath }\{ logName }EventLogs{ unixTimeStamp }.xlsx";
+            return filePath;
         }
     }
 }

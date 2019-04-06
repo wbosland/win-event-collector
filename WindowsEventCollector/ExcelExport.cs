@@ -7,9 +7,9 @@ using WindowsEventCollector.Interfaces;
 
 namespace WindowsEventCollector
 {
-    public class ExportService : IExportService
+    public class ExcelExport : IExport
     {
-        public void ExportToExcel<T>(IEnumerable<T> collection, string filePath)
+        public void Export<T>(IEnumerable<T> collection, string filePath)
         {
             using (var workbook = new XLWorkbook())
             {
